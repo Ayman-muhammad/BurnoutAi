@@ -1,0 +1,39 @@
+{
+  "entities": {
+    "expense": {
+      "title": "Expense",
+      "description": "A financial expense record",
+      "type": "object",
+      "properties": {
+        "category": { "type": "string", "description": "Category of the expense" },
+        "amount": { "type": "number", "description": "Amount spent" },
+        "description": { "type": "string", "description": "Description of the expense" },
+        "isSubscription": { "type": "boolean", "description": "Whether it is a recurring subscription" },
+        "uid": { "type": "string", "description": "Owner's user ID" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["category", "amount", "description", "uid", "createdAt"]
+    },
+    "userProfile": {
+      "title": "User Profile",
+      "description": "User specific settings and financial summary",
+      "type": "object",
+      "properties": {
+        "cashBalance": { "type": "number", "description": "Current cash balance" },
+        "monthlyRevenue": { "type": "number", "description": "Current monthly revenue" },
+        "uid": { "type": "string", "description": "Owner's user ID" }
+      },
+      "required": ["uid"]
+    }
+  },
+  "firestore": {
+    "users/{userId}/expenses": {
+      "schema": "expense",
+      "description": "User's individual expenses"
+    },
+    "users/{userId}": {
+      "schema": "userProfile",
+      "description": "User's financial profile"
+    }
+  }
+}

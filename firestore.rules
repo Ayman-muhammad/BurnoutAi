@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users/{userId} (User Profile)
+    // Fields:
+    //   - cashBalance: number (optional)
+    //   - monthlyRevenue: number (optional)
+    //   - uid: string (required, immutable)
+    //
+    // Collection: users/{userId}/expenses/{expenseId}
+    // Fields:
+    //   - category: string (required)
+    //   - amount: number (required, positive)
+    //   - description: string (required, max 200 chars)
+    //   - isSubscription: boolean (required)
+    //   - uid: string (required, immutable)
+    //   - createdAt: timestamp (required, immutable)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUserProfile(data) {
+      return hasOnlyAllowedFields(['cashBalance', 'monthlyRevenue', 'uid']) &&
+             (data.cashBalance == null || data.cashBalance is number) &&
+             (data.monthlyRevenue == null || data.monthlyRevenue is number) &&
+             data.uid == request.auth.uid;
+    }
+
+    function isValidExpense(data) {
+      return hasOnlyAllowedFields(['category', 'amount', 'description', 'isSubscription', 'uid', 'createdAt']) &&
+             data.category is string && data.category.size() > 0 && data.category.size() < 50 &&
+             data.amount is number && data.amount >= 0 &&
+             data.description is string && data.description.size() > 0 && data.description.size() <= 200 &&
+             data.isSubscription is bool &&
+             data.uid == request.auth.uid &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow update: if isOwner(userId) && isValidUserProfile(request.resource.data) &&
+                      request.resource.data.uid == resource.data.uid;
+
+      match /expenses/{expenseId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidExpense(request.resource.data);
+        allow update: if isOwner(userId) && isValidExpense(request.resource.data) &&
+                        request.resource.data.uid == resource.data.uid &&
+                        request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
